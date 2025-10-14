@@ -1,0 +1,133 @@
+---
+title: "fpp3 quickstart guide"
+author: "Chris Aguilar"
+format: html
+editor: visual
+---
+
+## Intro
+
+The purpose of this document is to show how to do a few common techniques for time series analysis using the `{fpp3}` package. 
+
+## Creating a tsibble object
+
+For `fpp3`, time series need to be housed within a `tsibble` object, which is a dataframe with a few special attributes for the `fpp3` package.
+
+For this example, I'll use the `test.xls` set used in the **Model identification and estimation using PROC ARIMA** notes. I'll use the `{readxl}` package to import it since it's an Excel file. Then I'll grab the columns I care about to create the `tsibble` object.
+
+```{r import}
+library(readxl)
+library(fpp3)
+
+testdata <- read_excel("test.xls")
+
+testdata
+
+# creating tsibble. we always need an index, so here it'll be the time col
+
+my_tsibble <- testdata |>
+  select(time, z) |>
+  as_tsibble(index = time)
+
+my_tsibble
+```
+
+Now we can do our usual time series EDA with a few convenient functions.
+
+## Descriptive statistics
+
+A `tsibble` is just a dataframe so the usual functions and methods apply.
+
+However, if we wish to do summary statistics aside from what's provided by `summary()`, we convert back to a vanilla `tibble` easily.
+
+```{r summary}
+
+summary(my_tsibble)
+
+# convert to tibble for custom summary statistics.
+my_tsibble |>
+  as_tibble() |>
+  summarize(mean_z = mean(z), sd_z = sd(z), n = n())
+```
+
+Now we look at some common time series plots.
+
+## Pre-modeling Plots
+
+We like to plot the time series, its ACF and PACF plots for EDA. Here's how.
+
+```{r ts plots}
+
+# TS only
+my_tsibble |>
+  autoplot() +
+  labs(title = "A plot of just the time series")
+
+# TS plus diagnostic plots
+my_tsibble |>
+  gg_tsdisplay(plot_type = "partial") +
+  labs(title = "The usual diagnostic plots")
+```
+
+The argument `plot_type` allows us to replace the plot on the bottom RHS. For this simple series, we have what we need. But later on when we work with many different series in the same `tsibble`, the `plot_type` argument is very helpful because it allows other plots that can help us specify models better later.
+
+I haven't seen the IACF produced in an R setting before, but I don't believe it's strictly necessary for our purposes.
+
+## Hypothesis tests
+
+We now see how we might do tests to check for unit roots and for white noise.
+
+`fpp3` does NOT do the Augmented Dickey Fuller Test to check for unit roots. It uses the KPSS unit root test where the Null hypothesis is stationarity. The documentation explains -- but you'll also need to install the `urca` package to enable this functionality.
+
+However, the `{tseries}` package contains the ADF test. 
+
+First, the `fpp3` approach. We use the `features()` function, select the response variable, and then select the tests we want to perform. The output will be the test statistics and their rounded p-values.
+
+Below, I include the tests I want done on my series in a list using the `features` argument. I use an anonymous function for the second test so I can define the lag. You can see the test statistic matches the one on slide 24/109.
+
+```{r tests}
+library(tseries)
+
+my_tsibble |>
+  features(z, features = list(unitroot_kpss, ~ ljung_box(., lag=6)))
+```
+
+If we wanted to do the ADF test, we can do it as follows.
+
+```{r adf}
+
+my_tsibble |>
+  pull(z) |> # extract the z vector
+  adf.test() # not stationary
+```
+
+So that's how we'd do unit root tests for stationarity and the Ljung-Box test to test the null that our series is white noise!
+
+## Estimation
+
+We can fit models for estimation as follows.
+
+```{r ar1}
+
+ar1 <- my_tsibble |>
+  model(ar1 = ARIMA(z ~ 1 + pdq(1, 0, 0)))
+
+# view of model
+ar1 |> report()
+
+# pull AIC, BIC, etc
+ar1 |> glance()
+```
+
+We don't get the t-values and p-values by default. We'd need to do those manually. If we end up needing them later, I'll incorporate how to grab those.
+
+## Check model residuals
+
+Finally, we can check residuals as follows.
+
+```{r model residuals}
+
+ar1 |>
+  gg_tsresiduals()
+```
+
