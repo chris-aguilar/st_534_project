@@ -1,7 +1,9 @@
 ---
 title: "fpp3 quickstart guide"
 author: "Chris Aguilar"
-format: html
+format: 
+  html:
+    toc: true
 editor: visual
 ---
 
@@ -69,7 +71,7 @@ my_tsibble |>
   labs(title = "The usual diagnostic plots")
 ```
 
-The argument `plot_type` allows us to replace the plot on the bottom RHS. For this simple series, we have what we need. But later on when we work with many different series in the same `tsibble`, the `plot_type` argument is very helpful because it allows other plots that can help us specify models better later.
+The argument `plot_type` allows us to replace the plot on the bottom RHS. For this simple series, we have what we need. But later on when we work with seasonal series, the `plot_type` argument is very helpful because it allows other plots that can help us specify models better later.
 
 I haven't seen the IACF produced in an R setting before, but I don't believe it's strictly necessary for our purposes.
 
@@ -103,23 +105,86 @@ my_tsibble |>
 
 So that's how we'd do unit root tests for stationarity and the Ljung-Box test to test the null that our series is white noise!
 
+Since the hypothesis testing for unit roots indicated a need for differencing, let's see how we do that now.
+
+## Differencing a series
+
+Explicitly differencing a series for modeling purposes is easily done. We're simply adding a column to our current `tsibble` that differences our series using the `difference()` function within `mutate()` to add a column to our dataframe.
+
+We'll add a twice-differenced series, `z_diff2` as well just to show how easy it is to do so.
+
+```{r differencing}
+
+my_tsibble <- my_tsibble |>
+  mutate(z_diff1 = difference(z, lag = 1),
+         z_diff2 = difference(z_diff1))
+
+my_tsibble
+```
+
+Since our previous hypothesis testing and visuals indicated a need for differencing, let's see what those same actions show now with our differenced series, `z_diff1`.
+
+```{r diagnostics z_diff1}
+
+my_tsibble |>
+  gg_tsdisplay(y=z_diff1, plot_type = "partial") +
+  labs(title = "Series looks closer to stationary",
+       subtitle = "Candidate for AR(4) on differenced series?")
+
+# using base fpp3 functions to check H0 of stationarity and white noise
+my_tsibble |>
+  features(z_diff1, list(unitroot_kpss, ljung_box))
+
+# ADF test again, too
+my_tsibble |>
+  filter(!is.na(z_diff1)) |>
+  pull(z_diff1) |>
+  tseries::adf.test()
+```
+Hypothesis tests indicate non-stationarity and non-white noise of differenced series. Let's see what this approach looks like on the twice-differenced series, `z_diff2`.
+
+```{r diagnostics z_diff2}
+
+my_tsibble |>
+  gg_tsdisplay(y=z_diff2, plot_type = "partial") +
+  labs(title = "Series looks even closer to stationary",
+       subtitle = "Candidate for MA(3) on twice-differenced series?")
+
+# using base fpp3 functions to check H0 of stationarity and white noise
+my_tsibble |>
+  features(z_diff2, list(unitroot_kpss, ljung_box))
+
+# ADF test again, too
+my_tsibble |>
+  filter(!is.na(z_diff2)) |>
+  pull(z_diff1) |>
+  tseries::adf.test() # best practice is to not exceed 2 differences
+```
+So the models we'll try are MA(3) on twice-differenced series, an AR(5) and we'll also try an ARMA(1,1) just because we can.
+
 ## Estimation
 
-We can fit models for estimation as follows.
+We can fit models for estimation as follows. We use `report()` **on the model table with all the models** to look at GOF statistics for all the models upfront. 
 
 ```{r ar1}
 
-ar1 <- my_tsibble |>
-  model(ar1 = ARIMA(z ~ 1 + pdq(1, 0, 0)))
+model_set <- my_tsibble |>
+  model(
+    ar4 = ARIMA(z_diff2 ~ 1 + pdq(5, 0, 0)),
+    ma3 = ARIMA(z_diff2 ~ 1 + pdq(0, 0, 3)),
+    arma11 = ARIMA(z_diff2 ~ 1 + pdq(1, 0, 1))
+    )
 
-# view of model
-ar1 |> report()
-
-# pull AIC, BIC, etc
-ar1 |> glance()
+model_set |> report()
 ```
 
-We don't get the t-values and p-values by default. We'd need to do those manually. If we end up needing them later, I'll incorporate how to grab those.
+We can view test statistics and p-values as follows. This must be done for one model at a time.
+
+```{r test stats}
+
+model_set |> select(ma3) |> report() |> coef()
+```
+
 
 ## Check model residuals
 
@@ -127,7 +192,28 @@ Finally, we can check residuals as follows.
 
 ```{r model residuals}
 
-ar1 |>
-  gg_tsresiduals()
+model_set |>
+  select(ma3) |> 
+  gg_tsresiduals() +
+  labs(title = "Checking residuals of MA(3) on twice-differenced series.")
+
+model_set |>
+  select(ma3) |>
+  augment() |>
+  features(.innov, ljung_box)
+```
+
+Of all the models, the MA(3) on the twice-differenced series shows the best GOF statistics and the residuals appear to be white-noise based on graphical inspection and hypothesis testing. So we'd select this model for forecasting.
+
+## Forecasting
+
+We can create forecasts with our models using the `forecast()` function with argument `h` that says how many points into the future we want to forecast to.
+
+Below we forecast 10 points into the future on the 3 models we fit. If we only want our preferred model's forecast, we'd simply select that  specific model prior to forecasting. We could also just forecast and do `filter(.model == "best_model")`.
+
+```{r forecast}
+
+model_set |>
+  forecast(h = 10)
 ```
 

@@ -74,10 +74,26 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 </head>
 
-<body class="fullcontent quarto-light">
+<body class="quarto-light">
 
 <div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
-
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#intro" id="toc-intro" class="nav-link active" data-scroll-target="#intro">Intro</a></li>
+  <li><a href="#creating-a-tsibble-object" id="toc-creating-a-tsibble-object" class="nav-link" data-scroll-target="#creating-a-tsibble-object">Creating a tsibble object</a></li>
+  <li><a href="#descriptive-statistics" id="toc-descriptive-statistics" class="nav-link" data-scroll-target="#descriptive-statistics">Descriptive statistics</a></li>
+  <li><a href="#pre-modeling-plots" id="toc-pre-modeling-plots" class="nav-link" data-scroll-target="#pre-modeling-plots">Pre-modeling Plots</a></li>
+  <li><a href="#hypothesis-tests" id="toc-hypothesis-tests" class="nav-link" data-scroll-target="#hypothesis-tests">Hypothesis tests</a></li>
+  <li><a href="#differencing-a-series" id="toc-differencing-a-series" class="nav-link" data-scroll-target="#differencing-a-series">Differencing a series</a></li>
+  <li><a href="#estimation" id="toc-estimation" class="nav-link" data-scroll-target="#estimation">Estimation</a></li>
+  <li><a href="#check-model-residuals" id="toc-check-model-residuals" class="nav-link" data-scroll-target="#check-model-residuals">Check model residuals</a></li>
+  <li><a href="#forecasting" id="toc-forecasting" class="nav-link" data-scroll-target="#forecasting">Forecasting</a></li>
+  </ul>
+</nav>
+</div>
 <main class="content" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
@@ -247,7 +263,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 </div>
-<p>The argument <code>plot_type</code> allows us to replace the plot on the bottom RHS. For this simple series, we have what we need. But later on when we work with many different series in the same <code>tsibble</code>, the <code>plot_type</code> argument is very helpful because it allows other plots that can help us specify models better later.</p>
+<p>The argument <code>plot_type</code> allows us to replace the plot on the bottom RHS. For this simple series, we have what we need. But later on when we work with seasonal series, the <code>plot_type</code> argument is very helpful because it allows other plots that can help us specify models better later.</p>
 <p>I haven’t seen the IACF produced in an R setting before, but I don’t believe it’s strictly necessary for our purposes.</p>
 </section>
 <section id="hypothesis-tests" class="level2">
@@ -288,51 +304,241 @@ alternative hypothesis: stationary</code></pre>
 </div>
 </div>
 <p>So that’s how we’d do unit root tests for stationarity and the Ljung-Box test to test the null that our series is white noise!</p>
+<p>Since the hypothesis testing for unit roots indicated a need for differencing, let’s see how we do that now.</p>
+</section>
+<section id="differencing-a-series" class="level2">
+<h2 class="anchored" data-anchor-id="differencing-a-series">Differencing a series</h2>
+<p>Explicitly differencing a series for modeling purposes is easily done. We’re simply adding a column to our current <code>tsibble</code> that differences our series using the <code>difference()</code> function within <code>mutate()</code> to add a column to our dataframe.</p>
+<p>We’ll add a twice-differenced series, <code>z_diff2</code> as well just to show how easy it is to do so.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>my_tsibble <span class="ot">&lt;-</span> my_tsibble <span class="sc">|&gt;</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">z_diff1 =</span> <span class="fu">difference</span>(z, <span class="at">lag =</span> <span class="dv">1</span>),</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">z_diff2 =</span> <span class="fu">difference</span>(z_diff1))</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>my_tsibble</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tsibble: 100 x 4 [1]
+    time      z z_diff1 z_diff2
+   &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;
+ 1     1  -73.5   NA     NA    
+ 2     2  -75.2   -1.72  NA    
+ 3     3  -76.7   -1.48   0.240
+ 4     4  -79.4   -2.75  -1.27 
+ 5     5  -83.3   -3.91  -1.16 
+ 6     6  -87.3   -4.03  -0.127
+ 7     7  -92.0   -4.67  -0.635
+ 8     8  -96.0   -3.98   0.692
+ 9     9  -99.2   -3.24   0.733
+10    10 -103.    -3.49  -0.247
+# ℹ 90 more rows</code></pre>
+</div>
+</div>
+<p>Since our previous hypothesis testing and visuals indicated a need for differencing, let’s see what those same actions show now with our differenced series, <code>z_diff1</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>my_tsibble <span class="sc">|&gt;</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gg_tsdisplay</span>(<span class="at">y=</span>z_diff1, <span class="at">plot_type =</span> <span class="st">"partial"</span>) <span class="sc">+</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Series looks closer to stationary"</span>,</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Candidate for AR(4) on differenced series?"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 1 row containing missing values or values outside the scale range
+(`geom_line()`).</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 1 row containing missing values or values outside the scale range
+(`geom_point()`).</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="fpp3_quickstart_guide_files/figure-html/diagnostics%20z_diff1-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># using base fpp3 functions to check H0 of stationarity and white noise</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>my_tsibble <span class="sc">|&gt;</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">features</span>(z_diff1, <span class="fu">list</span>(unitroot_kpss, ljung_box))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 4
+  kpss_stat kpss_pvalue lb_stat lb_pvalue
+      &lt;dbl&gt;       &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;
+1      1.51        0.01    72.0         0</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ADF test again, too</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>my_tsibble <span class="sc">|&gt;</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(z_diff1)) <span class="sc">|&gt;</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>(z_diff1) <span class="sc">|&gt;</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>  tseries<span class="sc">::</span><span class="fu">adf.test</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Augmented Dickey-Fuller Test
+
+data:  pull(filter(my_tsibble, !is.na(z_diff1)), z_diff1)
+Dickey-Fuller = -2.6146, Lag order = 4, p-value = 0.3221
+alternative hypothesis: stationary</code></pre>
+</div>
+</div>
+<p>Hypothesis tests indicate non-stationarity and non-white noise of differenced series. Let’s see what this approach looks like on the twice-differenced series, <code>z_diff2</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>my_tsibble <span class="sc">|&gt;</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gg_tsdisplay</span>(<span class="at">y=</span>z_diff2, <span class="at">plot_type =</span> <span class="st">"partial"</span>) <span class="sc">+</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Series looks even closer to stationary"</span>,</span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Candidate for MA(3) on twice-differenced series?"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 2 rows containing missing values or values outside the scale range
+(`geom_line()`).</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 2 rows containing missing values or values outside the scale range
+(`geom_point()`).</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="fpp3_quickstart_guide_files/figure-html/diagnostics%20z_diff2-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co"># using base fpp3 functions to check H0 of stationarity and white noise</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>my_tsibble <span class="sc">|&gt;</span></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">features</span>(z_diff2, <span class="fu">list</span>(unitroot_kpss, ljung_box))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 4
+  kpss_stat kpss_pvalue lb_stat lb_pvalue
+      &lt;dbl&gt;       &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;
+1    0.0473         0.1    2.98    0.0844</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ADF test again, too</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>my_tsibble <span class="sc">|&gt;</span></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(z_diff2)) <span class="sc">|&gt;</span></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pull</span>(z_diff1) <span class="sc">|&gt;</span></span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>  tseries<span class="sc">::</span><span class="fu">adf.test</span>() <span class="co"># best practice is to not exceed 2 differences</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Augmented Dickey-Fuller Test
+
+data:  pull(filter(my_tsibble, !is.na(z_diff2)), z_diff1)
+Dickey-Fuller = -2.5208, Lag order = 4, p-value = 0.3611
+alternative hypothesis: stationary</code></pre>
+</div>
+</div>
+<p>So the models we’ll try are MA(3) on twice-differenced series, an AR(5) and we’ll also try an ARMA(1,1) just because we can.</p>
 </section>
 <section id="estimation" class="level2">
 <h2 class="anchored" data-anchor-id="estimation">Estimation</h2>
-<p>We can fit models for estimation as follows.</p>
+<p>We can fit models for estimation as follows. We use <code>report()</code> <strong>on the model table with all the models</strong> to look at GOF statistics for all the models upfront.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>ar1 <span class="ot">&lt;-</span> my_tsibble <span class="sc">|&gt;</span></span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">model</span>(<span class="at">ar1 =</span> <span class="fu">ARIMA</span>(z <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> <span class="fu">pdq</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">0</span>)))</span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="co"># view of model</span></span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>ar1 <span class="sc">|&gt;</span> <span class="fu">report</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Series: z 
-Model: ARIMA(1,0,0) w/ mean 
-
-Coefficients:
-         ar1  constant
-      0.9993   -0.0954
-s.e.  0.0009    0.0447
-
-sigma^2 estimated as 6.365:  log likelihood=-236.74
-AIC=479.47   AICc=479.72   BIC=487.29</code></pre>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>model_set <span class="ot">&lt;-</span> my_tsibble <span class="sc">|&gt;</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">model</span>(</span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">ar4 =</span> <span class="fu">ARIMA</span>(z_diff2 <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> <span class="fu">pdq</span>(<span class="dv">5</span>, <span class="dv">0</span>, <span class="dv">0</span>)),</span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">ma3 =</span> <span class="fu">ARIMA</span>(z_diff2 <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> <span class="fu">pdq</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">3</span>)),</span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">arma11 =</span> <span class="fu">ARIMA</span>(z_diff2 <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> <span class="fu">pdq</span>(<span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">1</span>))</span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>model_set <span class="sc">|&gt;</span> <span class="fu">report</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in report.mdl_df(model_set): Model reporting is only supported for
+individual models, so a glance will be shown. To see the report for a specific
+model, use `select()` and `filter()` to identify a single model.</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># pull AIC, BIC, etc</span></span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>ar1 <span class="sc">|&gt;</span> <span class="fu">glance</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 1 × 8
+<pre><code># A tibble: 3 × 8
   .model sigma2 log_lik   AIC  AICc   BIC ar_roots  ma_roots 
   &lt;chr&gt;   &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;list&gt;    &lt;list&gt;   
-1 ar1      6.36   -237.  479.  480.  487. &lt;cpl [1]&gt; &lt;cpl [0]&gt;</code></pre>
+1 ar4     1.01    -138.  290.  291.  308. &lt;cpl [5]&gt; &lt;cpl [0]&gt;
+2 ma3     0.975   -137.  285.  285.  298. &lt;cpl [0]&gt; &lt;cpl [3]&gt;
+3 arma11  1.17    -146.  301.  301.  311. &lt;cpl [1]&gt; &lt;cpl [1]&gt;</code></pre>
 </div>
 </div>
-<p>We don’t get the t-values and p-values by default. We’d need to do those manually. If we end up needing them later, I’ll incorporate how to grab those.</p>
+<p>We can view test statistics and p-values as follows. This must be done for one model at a time.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>model_set <span class="sc">|&gt;</span> <span class="fu">select</span>(ma3) <span class="sc">|&gt;</span> <span class="fu">report</span>() <span class="sc">|&gt;</span> <span class="fu">coef</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Series: z_diff2 
+Model: ARIMA(0,0,3) w/ mean 
+
+Coefficients:
+         ma1      ma2      ma3  constant
+      0.2293  -0.6138  -0.3207    0.0283
+s.e.  0.1039   0.0863   0.1096    0.0323
+
+sigma^2 estimated as 0.9746:  log likelihood=-137.4
+AIC=284.8   AICc=285.44   BIC=297.83</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 6
+  .model term     estimate std.error statistic  p.value
+  &lt;chr&gt;  &lt;chr&gt;       &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
+1 ma3    ma1        0.229     0.104      2.21  2.97e- 2
+2 ma3    ma2       -0.614     0.0863    -7.11  1.91e-10
+3 ma3    ma3       -0.321     0.110     -2.93  4.26e- 3
+4 ma3    constant   0.0283    0.0323     0.874 3.84e- 1</code></pre>
+</div>
+</div>
 </section>
 <section id="check-model-residuals" class="level2">
 <h2 class="anchored" data-anchor-id="check-model-residuals">Check model residuals</h2>
 <p>Finally, we can check residuals as follows.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>ar1 <span class="sc">|&gt;</span></span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gg_tsresiduals</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a>model_set <span class="sc">|&gt;</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(ma3) <span class="sc">|&gt;</span> </span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gg_tsresiduals</span>() <span class="sc">+</span></span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Checking residuals of MA(3) on twice-differenced series."</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 2 rows containing missing values or values outside the scale range
+(`geom_line()`).</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 2 rows containing missing values or values outside the scale range
+(`geom_point()`).</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Removed 2 rows containing non-finite outside the scale range
+(`stat_bin()`).</code></pre>
+</div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
 <p><img src="fpp3_quickstart_guide_files/figure-html/model%20residuals-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
+</div>
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a>model_set <span class="sc">|&gt;</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(ma3) <span class="sc">|&gt;</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">augment</span>() <span class="sc">|&gt;</span></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">features</span>(.innov, ljung_box)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+  .model lb_stat lb_pvalue
+  &lt;chr&gt;    &lt;dbl&gt;     &lt;dbl&gt;
+1 ma3    0.00962     0.922</code></pre>
+</div>
+</div>
+<p>Of all the models, the MA(3) on the twice-differenced series shows the best GOF statistics and the residuals appear to be white-noise based on graphical inspection and hypothesis testing. So we’d select this model for forecasting.</p>
+</section>
+<section id="forecasting" class="level2">
+<h2 class="anchored" data-anchor-id="forecasting">Forecasting</h2>
+<p>We can create forecasts with our models using the <code>forecast()</code> function with argument <code>h</code> that says how many points into the future we want to forecast to.</p>
+<p>Below we forecast 10 points into the future on the 3 models we fit. If we only want our preferred model’s forecast, we’d simply select that specific model prior to forecasting. We could also just forecast and do <code>filter(.model == "best_model")</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>model_set <span class="sc">|&gt;</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">forecast</span>(<span class="at">h =</span> <span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A fable: 30 x 4 [1]
+# Key:     .model [3]
+   .model  time
+   &lt;chr&gt;  &lt;dbl&gt;
+ 1 ar4      101
+ 2 ar4      102
+ 3 ar4      103
+ 4 ar4      104
+ 5 ar4      105
+ 6 ar4      106
+ 7 ar4      107
+ 8 ar4      108
+ 9 ar4      109
+10 ar4      110
+# ℹ 20 more rows
+# ℹ 2 more variables: z_diff2 &lt;dist&gt;, .mean &lt;dbl&gt;</code></pre>
 </div>
 </div>
 </section>
