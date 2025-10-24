@@ -9,7 +9,7 @@ editor: visual
 
 ## Intro
 
-The purpose of this document is to show how to do a few common techniques for time series analysis using the `{fpp3}` package. 
+The purpose of this document is to show how to do a few common techniques for time series analysis using the `{fpp3}` package.
 
 ## Creating a tsibble object
 
@@ -81,7 +81,7 @@ We now see how we might do tests to check for unit roots and for white noise.
 
 `fpp3` does NOT do the Augmented Dickey Fuller Test to check for unit roots. It uses the KPSS unit root test where the Null hypothesis is stationarity. The documentation explains -- but you'll also need to install the `urca` package to enable this functionality.
 
-However, the `{tseries}` package contains the ADF test. 
+However, the `{tseries}` package contains the ADF test.
 
 First, the `fpp3` approach. We use the `features()` function, select the response variable, and then select the tests we want to perform. The output will be the test statistics and their rounded p-values.
 
@@ -141,6 +141,7 @@ my_tsibble |>
   pull(z_diff1) |>
   tseries::adf.test()
 ```
+
 Hypothesis tests indicate non-stationarity and non-white noise of differenced series. Let's see what this approach looks like on the twice-differenced series, `z_diff2`.
 
 ```{r diagnostics z_diff2}
@@ -160,11 +161,12 @@ my_tsibble |>
   pull(z_diff1) |>
   tseries::adf.test() # best practice is to not exceed 2 differences
 ```
+
 So the models we'll try are MA(3) on twice-differenced series, an AR(5) and we'll also try an ARMA(1,1) just because we can.
 
 ## Estimation
 
-We can fit models for estimation as follows. We use `report()` **on the model table with all the models** to look at GOF statistics for all the models upfront. 
+We can fit models for estimation as follows. We use `report()` **on the model table with all the models** to look at GOF statistics for all the models upfront.
 
 ```{r ar1}
 
@@ -184,7 +186,6 @@ We can view test statistics and p-values as follows. This must be done for one m
 
 model_set |> select(ma3) |> report() |> coef()
 ```
-
 
 ## Check model residuals
 
@@ -209,11 +210,10 @@ Of all the models, the MA(3) on the twice-differenced series shows the best GOF 
 
 We can create forecasts with our models using the `forecast()` function with argument `h` that says how many points into the future we want to forecast to.
 
-Below we forecast 10 points into the future on the 3 models we fit. If we only want our preferred model's forecast, we'd simply select that  specific model prior to forecasting. We could also just forecast and do `filter(.model == "best_model")`.
+Below we forecast 10 points into the future on the 3 models we fit. If we only want our preferred model's forecast, we'd simply select that specific model prior to forecasting. We could also just forecast and do `filter(.model == "best_model")`.
 
 ```{r forecast}
 
 model_set |>
   forecast(h = 10)
 ```
-
