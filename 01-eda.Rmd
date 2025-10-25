@@ -1,11 +1,96 @@
-# Hello bookdown 
+# Exploratory Data Analyis 
 
-All chapters start with a first-level heading followed by your chapter title, like the line above. There should be only one first-level heading (`#`) per .Rmd file.
+We start by doing some exploratory data (EDA) analysis on our data.
 
-## A section
+## Data import and preview
 
-All chapter sections start with a second-level (`##`) or higher heading followed by your section title, like the sections above and below here. You can have as many as you want within a chapter.
+We'll need to import the sunspot data first. Then we'll preview the first 10 years.
 
-### An unnumbered section {-}
+```{r eda import, message=FALSE, echo=TRUE}
+library(dplyr)
+library(readr)
+library(fpp3)
+library(knitr)
 
-Chapters and sections are numbered by default. To un-number a heading, add a `{.unnumbered}` or the shorter `{-}` at the end of the heading, like in this section.
+sunspot_data <- read_csv("avg_annual_sunspots.csv") |>
+  select(year, avg_sunspots) |>
+  as_tsibble(index=year)
+
+kable(sunspot_data |> head(10), col.names = c("Year", "Sunspots"))
+```
+
+## Data visualization
+
+We begin by plotting the sunspot time series itself along with the relevant ACF and PACF plots.
+
+```{r data viz}
+library(ggplot2)
+
+min_sunspots <- min(sunspot_data$avg_sunspots)
+
+sunspot_data |>
+  gg_tsdisplay(avg_sunspots, plot_type = "partial") +
+  labs(title = "Sunspot series plot and ACF, PACF plots", 
+       subtitle = paste0("Min. avg. number of sunspots: ", min_sunspots))
+
+```
+
+It seems like the sunspot variance is not constant over time. This is shown by the smaller amplitudes between roughly 1875-1933, 1964-1975 and 2009-present. So we'll try a log-transformation. We won't need to adjust by a constant since the minimum number of sunspots is `r min_sunspots.`
+
+```{r logtransform data viz}
+
+sunspot_data <- sunspot_data|>
+  mutate(log_sunspots = log(avg_sunspots)) 
+
+sunspot_data |>
+  gg_tsdisplay(log_sunspots, plot_type = "partial", lag_max = 48) +
+  labs(title = "Log-transformed sunspot series plot and ACF, PACF plots", 
+       subtitle = "Variance appears stabilized")
+```
+
+After transforming our response variable, it's clearer to see there's no trend. There appears to be a cyclic pattern in our data, ranging from roughly 10-12 years as suggested by the peaks and troughs.
+
+**Supposing our series is stationary**, the slowly-decaying sinusoidal ACF plot rules out any MA(q) models. Based on the PACF plot, we can try an AR(3) model, maybe an AR(5) too. But we'll also try an ARMA(1, 1), an ARMA(2, 1) and an ARMA(2, 2) since the PACF plot exhibits a bit of a slow sinusoidal decay too.
+
+Thus, the proposed models **assuming our transformed process is stationary** would be:
+
+  - AR(3)
+  - AR(5)
+  - ARMA(1,1)
+  - ARMA(2,1)
+  - ARMA(2,2)
+
+## Checking for stationarity and white noise
+
+To ensure our transformed series is stationary and white noise, we run the Augmented Dickey-Fuller test along with the Ljung-Box test.
+
+```{r adf, message=FALSE, warning=FALSE}
+library(tseries)
+
+sunspot_data |>
+  pull(log_sunspots) |>
+  adf.test()
+
+```
+
+Based on the ADF test, the we reject the null hypothesis of a non-stationary series in favor of the alternative hypothesis of a stationary series. Thus, we decide no differencing is required.
+
+Next, we check for white noise in our transformed sunspot process with the Ljung-Box test. Here, the null hypothesis is that our process is white noise, implying that there isn't much information we can use for modeling within our series.
+
+```{r ljungbox}
+sunspot_data |>
+  pull(log_sunspots) |>
+  Box.test(type="Ljung-Box")
+```
+
+Based on the Ljung-Box test, we reject the null hypothesis of white noise. We should fit some models.
+
+**So, to reiterate**, the proposed models **assuming our transformed process is stationary** would be:
+
+  - AR(3)
+  - AR(5)
+  - ARMA(1,1)
+  - ARMA(2,1)
+  - ARMA(2,2)
+  
+We'll go through the model fitting exercise next using these models.
