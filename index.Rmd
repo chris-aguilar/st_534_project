@@ -1,5 +1,5 @@
 --- 
-title: "ST 534 Fall 2025 Project: Average Annual Sunspot Count"
+title: "ST 534 Fall 2025 Project: Quarterly Aircraft Incidents"
 author: "Joy Zhou, Felicia Chen, Chris Aguilar"
 date: "`r Sys.Date()`"
 site: bookdown::bookdown_site
@@ -10,12 +10,9 @@ output:
 
 # Introduction
 
-This data represents the average annual sunspot count. It is modified to date ranges 1850-2024, and focuses only on the average annual count and the date. This modification from the raw data was done as the raw data contains yearly counts, and 1850 is when 365 sunspot observations per year begin. Prior to that, the number was more variable, less than 365 observations per year, and often missing.
+This data represents the quarterly aircraft incident count for all 50 US states going back to Q1 1983. This data was selected because claims were made that aviation incidents had become more common after January 2025, so we wanted to see if 2025 quarterly data followed a trend consistent with trends seen in previous years.
 
 ## Data source
 
-Source: WDC-SILSO, Royal Observatory of Belgium, Brussels, DOI: [https://doi.org/10.24414/qnza-ac80](https://doi.org/10.24414/qnza-ac80).
+Source: Case Analysis and Reporting Online (CAROL), National Transportation Safety Board, retrieved 2025-10-28, (https://carol.ntsb.gov/).
 
-The **Yearly mean total sunspot number** raw data, pulled from the **Total Sunspot Number section**, along with the relevant data dictionary, can be found here: [https://www.sidc.be/SILSO/datafiles](https://www.sidc.be/SILSO/datafiles).
-
-```

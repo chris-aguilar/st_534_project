@@ -17,8 +17,10 @@ library(fpp3)
 # data import template for forecasting section; this code is set to not show in 
 # report
 
-sunspot_data <- read_csv("avg_annual_sunspots.csv") |>
-  select(year, avg_sunspots) |>
-  as_tsibble(index=year)
+aviation_data <- read_csv("aviation_incident_data_clean.csv") |>
+  mutate(year_qtr = yearquarter(year_qtr)) |>
+  as_tsibble(index=year_qtr) |>
+  filter_index(. ~ "2025 Q3") # dropping 2025 Q4 due to incomplete data
 
 ```
+

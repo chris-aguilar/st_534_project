@@ -4,7 +4,7 @@ We start by doing some exploratory data (EDA) analysis on our data.
 
 ## Data import and preview
 
-We'll need to import the sunspot data first. Then we'll preview the first 10 years.
+We'll need to import the aviation incident data first. Then we'll preview the first 10 quarters.
 
 ```{r eda import, message=FALSE, echo=TRUE}
 library(dplyr)
@@ -12,85 +12,123 @@ library(readr)
 library(fpp3)
 library(knitr)
 
-sunspot_data <- read_csv("avg_annual_sunspots.csv") |>
-  select(year, avg_sunspots) |>
-  as_tsibble(index=year)
+aviation_data <- read_csv("aviation_incident_data_clean.csv") |>
+  mutate(year_qtr = yearquarter(year_qtr)) |>
+  as_tsibble(index=year_qtr)
 
-kable(sunspot_data |> head(10), col.names = c("Year", "Sunspots"))
+kable(aviation_data |> head(10), col.names = c("Quarter", "Events"))
 ```
 
 ## Data visualization
 
-We begin by plotting the sunspot time series itself along with the relevant ACF and PACF plots.
+We begin by plotting the aviation incident time series itself along with the relevant ACF and PACF plots.
 
 ```{r data viz}
-library(ggplot2)
 
-min_sunspots <- min(sunspot_data$avg_sunspots)
-
-sunspot_data |>
-  gg_tsdisplay(avg_sunspots, plot_type = "partial") +
-  labs(title = "Sunspot series plot and ACF, PACF plots", 
-       subtitle = paste0("Min. avg. number of sunspots: ", min_sunspots))
+aviation_data |>
+  gg_tsdisplay(n, plot_type = "partial") +
+  labs(title = "Aviation incident series plot and ACF, PACF plots")
 
 ```
 
-It seems like the sunspot variance is not constant over time. This is shown by the smaller amplitudes between roughly 1875-1933, 1964-1975 and 2009-present. So we'll try a log-transformation. We won't need to adjust by a constant since the minimum number of sunspots is `r min_sunspots.`
+The last point in the series is an unusual observation. This point corresponds to Q4 2025. This data for analysis was collected 2025-10-28, meaning the final observation only has four weeks of data, not an entire quarter. So we'll drop that point from analysis.
+
+It also seems like the incident variance is not constant over time. This is shown by the smaller amplitudes toward the end of the series. So we'll make use of a log-transformation to stabilize variance.
+
+Next, we notice the ACF plot has large spikes at lag multiples of 4 and these die out very slowly. We're very likely going to need a seasonal differencing at lag of 4 to account for this strong seasonal pattern.
+
+We also see there's a downward trend. We might need lag-1 differencing to account for this, if our seasonally-differenced series does not become stationary.
+
+We'll filter away the final point, create a log-transformed incident count, a seasonal difference of the log-transform, a lag-1 difference of the log transform, and a combination of the differences on the log-transform.
+
+We'll start by visualizing the series with a log-transform first.
 
 ```{r logtransform data viz}
 
-sunspot_data <- sunspot_data|>
-  mutate(log_sunspots = log(avg_sunspots)) 
+# creating differenced series at lags 4, 1, and 4+1
+aviation_data <- aviation_data |>
+  filter_index(. ~ "2025 Q3") |> # everything up to Q3 2025 to omit partial Q4
+  mutate(
+    log_n = log(n), # for variance stabilization
+    sdiff_logn = difference(log_n, 4), # seasonal difference
+    diff_logn = difference(log_n), # lag-1 difference
+    double_diff_logn = difference(diff_logn, 4) # seasonal diff on simple diff
+    )
 
-sunspot_data |>
-  gg_tsdisplay(log_sunspots, plot_type = "partial", lag_max = 48) +
-  labs(title = "Log-transformed sunspot series plot and ACF, PACF plots", 
+aviation_data |>
+  gg_tsdisplay(log_n, plot_type = "partial", lag_max = 24) +
+  labs(title = "Log-transformed aviation incident series plot and ACF, PACF plots", 
        subtitle = "Variance appears stabilized")
 ```
 
-After transforming our response variable, it's clearer to see there's no trend. There appears to be a cyclic pattern in our data, ranging from roughly 10-12 years as suggested by the peaks and troughs.
+After transforming our response variable, it's clear to see variance now appears stable.
 
-**Supposing our series is stationary**, the slowly-decaying sinusoidal ACF plot rules out any MA(q) models. Based on the PACF plot, we can try an AR(3) model, maybe an AR(5) too. But we'll also try an ARMA(1, 1), an ARMA(2, 1) and an ARMA(2, 2) since the PACF plot exhibits a bit of a slow sinusoidal decay too.
+Next, we check a lag-1 difference to see if any other seasonal pattern is masked in our ACF/PACF plots.
 
-Thus, the proposed models **assuming our transformed process is stationary** would be:
+```{r lag1 diff and plot check, warning=FALSE}
 
-  - AR(3)
-  - AR(5)
-  - ARMA(1,1)
-  - ARMA(2,1)
-  - ARMA(2,2)
+aviation_data |>
+  gg_tsdisplay(difference(log_n), plot_type = "partial") +
+  labs(title = "Log-aviation incidents after a simple difference",
+       subtitle = "Strong seasonal pattern evident")
+```
 
-## Checking for stationarity and white noise
+It's clear that there's a strong seasonal pattern based on the differenced series and ACF plots. 
 
-To ensure our transformed series is stationary and white noise, we run the Augmented Dickey-Fuller test along with the Ljung-Box test.
+Next, we check visually after incorporating a seasonal lag of 4 but no lag-1 difference. We're curious to see if the series becomes stationary after a single seasonal difference.
+
+```{r seasonal lag visuals, warning=FALSE}
+
+aviation_data |>
+  gg_tsdisplay(difference(log_n, 4), plot_type = "partial", lag_max = 24) +
+  labs(title = "Log-aviation incidents after a lag-4 difference")
+```
+
+The series looks pretty close to stationary seeing as how there appears to be no trend or pattern in the differenced series plot, and the most of the seasonal ACF spikes disappear. We'll check with an ADF test.
 
 ```{r adf, message=FALSE, warning=FALSE}
 library(tseries)
 
-sunspot_data |>
-  pull(log_sunspots) |>
-  adf.test()
+# lag-4 adf
+aviation_data |>
+  filter(!is.na(sdiff_logn)) |> # no NA's allowed for ADF test
+  pull(sdiff_logn) |>
+  adf.test(k = 4) # test at lag 4 due to quarterly seasonality
 
 ```
 
-Based on the ADF test, the we reject the null hypothesis of a non-stationary series in favor of the alternative hypothesis of a stationary series. Thus, we decide no differencing is required.
+Based on the ADF test, a single seasonal difference at lag 4 is enough to make our series stationary.
 
-Next, we check for white noise in our transformed sunspot process with the Ljung-Box test. Here, the null hypothesis is that our process is white noise, implying that there isn't much information we can use for modeling within our series.
+We also check to see if we can reject the Ljung-Box null hypothesis of white noise.
 
-```{r ljungbox}
-sunspot_data |>
-  pull(log_sunspots) |>
-  Box.test(type="Ljung-Box")
+```{r sdiff white noise check}
+aviation_data |>
+  filter(!is.na(sdiff_logn)) |> # base-R Ljung-Box test expects no NAs
+  pull(sdiff_logn) |>
+  Box.test(lag = 8, type = "Ljung-Box") # 2 * seasonal period = 8
+
 ```
 
-Based on the Ljung-Box test, we reject the null hypothesis of white noise. We should fit some models.
+The Ljung-Box test suggests the lag-4 differenced series is not white noise, so we should do some modeling to make use of more information in the series.
 
-**So, to reiterate**, the proposed models **assuming our transformed process is stationary** would be:
+Looking at seasonal lag components of the **Lag-4 difference series, ACF and PACF plots**, we notice that the ACF plot has significant spikes into the teens and 20. We also notice the PACF plot has no more significant spikes after lag 8, corresponding to a seasonal lag of 2. The fact that the ACF plot continues to have spikes at later lags but the PACF plot stops after lag 8 suggests a non-seasonal AR portion. But also, the PACF still looks a little bit like it dies off slowly. So this suggests both a seasonal AR and MA component will be needed as well. 
 
-  - AR(3)
-  - AR(5)
-  - ARMA(1,1)
-  - ARMA(2,1)
-  - ARMA(2,2)
+So, since we took one seasonal difference, we fix $D=1$. For simplicity's sake, we're going to guess $p=3$ based on the significant PACF spike at lag 3. So we'll just play around with $P=[0, 1, 2]$, and leave $q=0$.
+
+We leave $Q=1$ to account for the seasonal ARMA component, and since P and Q are rarely greater than 1. However, we allow $P=[0, 1, 2]$ to vary because of the PACF.
+
+We'll also play with including a constant or not in the model. This is because the original series showed some slight downward trend, even though the lag-4 differenced series became stationary. With 171 observations, we have plenty of data to play with.
+
+We'll also make use of a variation of the [Hyndman-Khandakar algorithm](https://otexts.com/fpp3/arima-r.html#how-does-arima-work) to automatically select a model by choosing parameters that minimize $AICc$, a corrected version of the $AIC$.
+
+Thus, the candidate models using the log-transformed incident series are:
+
+  - $ARIMA(3,0,0)\times(0,1,1)_4$ sans constant,
+  - $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant,
+  - $ARIMA(3,0,0)\times(1,1,1)_4$ sans constant,
+  - $ARIMA(3,0,0)\times(1,1,1)_4$ with a constant,
+  - $ARIMA(3,0,0)\times(2,1,1)_4$ sans constant,
+  - $ARIMA(3,0,0)\times(2,1,1)_4$ with a constant,
+  - Some auto-selected seasonal ARIMA model, fixing $D=1$.
   
 We'll go through the model fitting exercise next using these models.
