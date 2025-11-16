@@ -1,26 +1,177 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
 # Modeling
-
-All chapters start with a first-level heading followed by your chapter title, like the line above. There should be only one first-level heading (`#`) per .Rmd file.
-
-## A section
-
-All chapter sections start with a second-level (`##`) or higher heading followed by your section title, like the sections above and below here. You can have as many as you want within a chapter.
-
-### An unnumbered section {-}
-
-Chapters and sections are numbered by default. To un-number a heading, add a `{.unnumbered}` or the shorter `{-}` at the end of the heading, like in this section.
 
 ```{r modeling data import, message=FALSE, echo=FALSE}
 library(readr)
 library(fpp3)
+library(knitr)
+library(ggtime)
 
 # data import template for modeling section; this code is set to not show in 
 # report
-
 aviation_data <- read_csv("aviation_incident_data_clean.csv") |>
   mutate(year_qtr = yearquarter(year_qtr)) |>
   as_tsibble(index=year_qtr) |>
-  filter_index(. ~ "2025 Q3") # dropping 2025 Q4 due to incomplete data
-
+  filter_index(. ~ "2025 Q3") |> # dropping 2025 Q4 due to incomplete data
+  mutate(
+    log_n = log(n) # for variance stabilization
+  )
 ```
+
+We will first split the data into training and test sets, using Q1 1983 - Q4 2024 for training and Q1 2025 - Q3 2025 for testing.
+```{r test_split}
+aviation_train <- aviation_data |> filter(year(year_qtr) < 2025)
+aviation_test <- aviation_data |> filter(year(year_qtr) >= 2025)
+```
+
+We will also use the following utility functions for the Ljung-Box white noise test.
+```{r utilities}
+get_dof_from_arima <- function(fit_arima, model_name) {
+  return (
+    fit_arima |>
+      select(ends_with(model_name)) |>
+      tidy(.) |> 
+      filter(term != "constant") |> 
+      NROW()
+  )
+}
+
+# Ljung-Box test function
+# Lag selected based on https://robjhyndman.com/hyndsight/ljung-box-test/
+# As the data is quarterly, we can use h = min(2m, T/5) = min(2*4, 171/5) =5
+test_ljung_box <- function(fit_arima, model_name) {
+  return (
+    augment(fit_arima) |>
+      filter(.model == model_name) |>
+      features(.innov, ljung_box, lag=8, 
+               dof=get_dof_from_arima(fit_arima, model_name))
+  )
+}
+```
+
+
+## Model fitting
+
+We will now fit the candidate models proposed during exploratory data analysis on the log-transformed data.
+
+  - $ARIMA(3,0,0)\times(0,1,1)_4$ sans constant,
+  - $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant,
+  - $ARIMA(3,0,0)\times(1,1,1)_4$ sans constant,
+  - $ARIMA(3,0,0)\times(1,1,1)_4$ with a constant,
+  - $ARIMA(3,0,0)\times(2,1,1)_4$ sans constant,
+  - $ARIMA(3,0,0)\times(2,1,1)_4$ with a constant,
+  - Some auto-selected seasonal ARIMA model, fixing $D=1$.
+  
+```{r model_fits}
+aviation_fit <-
+  aviation_train |>
+  model(arima300_011 = ARIMA(log_n ~ 0 + pdq(3, 0, 0) + PDQ(0, 1, 1, period=4)),
+        arima300_011_c = ARIMA(log_n ~ 1 + pdq(3, 0, 0) + PDQ(0, 1, 1, period=4)),
+        arima300_111 = ARIMA(log_n ~ 0 + pdq(3, 0, 0) + PDQ(1, 1, 1, period=4)),
+        arima300_111_c =  ARIMA(log_n ~ 1 + pdq(3, 0, 0) + PDQ(1, 1, 1, period=4)),
+        arima300_211 = ARIMA(log_n ~ 0 + pdq(3, 0, 0) + PDQ(2, 1, 1, period=4)),
+        arima300_211_c = ARIMA(log_n ~ 1 + pdq(3, 0, 0) + PDQ(2, 1, 1, period=4)),
+        auto = ARIMA(log_n ~ PDQ(D=1, period=4), stepwise = FALSE, approx = FALSE)
+        )
+```
+
+We will first examine the $ARIMA(3,0,0)\times(0,1,1)_4$ models.
+
+
+## $ARIMA(3,0,0)\times(0,1,1)_4$
+```{r residuals_300_011}
+aviation_fit |> 
+  select(arima300_011) |> 
+  ggtime::gg_tsresiduals() +
+  labs(title = "ARIMA(3,0,0) x (0,1,1)[4] without constant")
+
+aviation_fit |> 
+  select(arima300_011_c) |> 
+  ggtime::gg_tsresiduals() +
+  labs(title = "ARIMA(3,0,0) x (0,1,1)[4] with constant")
+```
+
+The residual pattern of the constant-inclusive model is closer to normal than the no-constant model (which skews left). More autocorrelation remains in the no-constant ACF than the constant-inclusive model, though no quarterly autocorrelation remains in either. Both contain an autocorrelation spike at lag 17, but this is potentially natural variation given the higher lag order and singular occurrence. We also note a sharp residual difference at Q1 2020, coinciding with the COVID-19 pandemic onset.
+
+```{r white_noise_300_011}
+kable(rbind(test_ljung_box(aviation_fit, "arima300_011"),  
+      test_ljung_box(aviation_fit, "arima300_011_c")))
+```
+
+The Ljung-Box white noise test results in p-values well above the $\alpha=.05$ threshold for both models, though the constant-inclusive model has a much higher p-value (.97). The residuals of both models are thus indistinguishable from white noise. Overall, the constant-inclusive model seems to have the better fit.
+
+## $ARIMA(3,0,0)\times(1,1,1)_4$
+We will now examine an $ARIMA(3,0,0)\times(1,1,1)_4$ sans constant, and an $ARIMA(3,0,0)\times(1,1,1)_4$ with a constant.
+```{r residuals_300_111}
+aviation_fit |> 
+  select(arima300_111) |> 
+  ggtime::gg_tsresiduals() +
+  labs(title = "ARIMA(3,0,0) x (1,1,1)[4] without constant")
+
+aviation_fit |> 
+  select(arima300_111_c) |> 
+  ggtime::gg_tsresiduals() +
+  labs(title = "ARIMA(3,0,0) x (1,1,1)[4] with constant")
+
+kable(rbind(test_ljung_box(aviation_fit, "arima300_111"),  
+      test_ljung_box(aviation_fit, "arima300_111_c")))
+```
+Like the previous $ARIMA(3,0,0)\times(0,1,1)_4$ models, we see isolated residual ACF spikes at lag 17 and a large residual in Q1 2020. We also observe a closer-to-normal distribution of residuals with the constant-inclusive model. From the Ljung-Box test, we can reasonably conclude the residuals of both models behave like white noise, with the constant-inclusive model providing a high probability of white noise. Compared to the previous models, we observe slightly more residual autocorrelation, but the models appear to fit adequately, favoring the constant-inclusive model.
+
+## $ARIMA(3,0,0)\times(2,1,1)_4$
+Next, we will inspect the $ARIMA(3,0,0)\times(2,1,1)_4$ models (with and without a constant). This model has one more seasonal AR term than the previous set.
+```{r residuals_300_211}
+aviation_fit |> 
+  select(arima300_211) |> 
+  gg_tsresiduals() +
+  labs(title = "ARIMA(3,0,0) x (2,1,1)[4] without constant")
+
+aviation_fit |> 
+  select(arima300_211_c) |> 
+  gg_tsresiduals() +
+  labs(title = "ARIMA(3,0,0) x (2,1,1)[4] with constant")
+
+kable(rbind(test_ljung_box(aviation_fit, "arima300_211"),  
+      test_ljung_box(aviation_fit, "arima300_211_c")))
+```
+The residuals for the $ARIMA(3,0,0)\times(2,1,1)_4$ models are very similar to those previously examined, with a large residual in Q1 2020 and the constant-inclusive model possessing overall lower autocorrelation and a nearer-to-normal residual arrangement. The Ljung-Box check has a fairly low p-value of ~.10 for the non-constant-inclusive model, but a quite large one (~.75) for the constant-inclusive model, suggesting that the constant-inclusive model residuals are white noise.
+
+## Model comparison
+Overall, the models with constants fit the data more closely. From visual inspection, the first model with a constant - $ARIMA(3,0,0)\times(0,1,1)_4$ - appeared to fit best. This model was also automatically selected by the [Hyndman-Khandakar algorithm](https://otexts.com/fpp3/arima-r.html#how-does-arima-work).
+
+```{r auto_model}
+aviation_fit |> select(auto)
+```
+
+```{r model_comparison}
+kable(glance(aviation_fit) |> arrange(AICc) |> select(.model:BIC))
+```
+
+The constant-inclusive $ARIMA(3,0,0)\times(0,1,1)_4$ model has the lowest AIC, AICc, and BIC values, and is also the most parsimonious of the models with constants. 
+
+We can also compare the accuracy of the 2025 forecasts.
+```{r test_accuracy}
+kable(
+  aviation_fit |> forecast(h=3) |> 
+    accuracy(aviation_test) |>
+    select(!RMSSE & !MASE) |> # remove NaN cols
+    arrange(RMSE)
+  )
+```
+The $ARIMA(3,0,0)\times(0,1,1)_4$ models also minimize test RMSE. As AIC and BIC favor the model with a constant, we will select it as our preferred model for forecasting.
+
+```{r}
+aviation_fit |> select(arima300_011_c) |> report()
+```
+
+## Final model
+Our preferred model for the log number of airline incidents is therefore:
+
+$$\phi(B)\,(1-B^4)Z_t = -.0088 + \Theta(B^4) a_t$$
+
+where $\phi(B) = 1 -.2425B - .1610B^2 - .2485B^3$, and $\Theta(B^4)= 1 - .7446B^4$. 
 
