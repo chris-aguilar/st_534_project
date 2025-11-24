@@ -17,26 +17,23 @@ library(ggtime)
 aviation_data <- read_csv("aviation_incident_data_clean.csv") |>
   mutate(year_qtr = yearquarter(year_qtr)) |>
   as_tsibble(index=year_qtr) |>
-  filter_index(. ~ "2025 Q3") |> # dropping 2025 Q4 due to incomplete data
-  mutate(
-    log_n = log(n) # for variance stabilization
-  )
+  filter_index(. ~ "2025 Q3")  # dropping 2025 Q4 due to incomplete data
 ```
 
+
 We will use the best-fitting model, $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant, to generate forecasts for the next 3 years forecast.
+
 ```{r forecasting, message=FALSE, warning=FALSE, results='hide'}
 library(fpp3)
 
 fit <- aviation_data |>
-  model(
-    arima300_011_c = ARIMA(log_n ~ 1 + pdq(3, 0, 0) + PDQ(0, 1, 1, period=4)
+  model(arima300_011_c = ARIMA(log(n) ~ 1 + pdq(3, 0, 0) + PDQ(0, 1, 1, period=4)
     )
   )
 
 # Forecast the next 12 quarters (3 years)
 fc <- fit |>
   forecast(h = 12)
-
 ```
 
 ```{r}
@@ -44,9 +41,8 @@ library(knitr)
 
 fc |>
   as_tibble() |>
-  select(year_qtr, log_n,.mean)|>
+  select(year_qtr, n,.mean)|>
   kable(digits = 3, caption = "3-year forecasts from ARIMA(3,0,0) x (0,1,1)[4]")
-
 ```
 
 Using `autoplot()` function to generate a plot of 3-year ahead forecasts
@@ -54,13 +50,12 @@ Using `autoplot()` function to generate a plot of 3-year ahead forecasts
 ```{r}
 fc |>
   autoplot(level=95) +
-  autolayer(aviation_data, log_n) +
+  autolayer(aviation_data, n) +
   labs(
     title = "Forecasts from ARIMA(3,0,0) X (0,1,1)[4]",
-    y = "Number of incidents (log scale)",
+    y = "Number of incidents",
     x = "Year-quarter"
   )
-
 ```
 
 The model predicts that aviation incident counts will remain stable over the next three years, with seasonal variation following the historical quarterly pattern. The forecast doesn't indication increase in aviation incidence frequency in the near future. This may reflect steady aviation safety practice. 
