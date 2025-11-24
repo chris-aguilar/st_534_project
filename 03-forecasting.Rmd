@@ -23,20 +23,20 @@ aviation_data <- read_csv("aviation_incident_data_clean.csv") |>
   )
 ```
 
+
 We will use the best-fitting model, $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant, to generate forecasts for the next 3 years forecast.
+
 ```{r forecasting, message=FALSE, warning=FALSE, results='hide'}
 library(fpp3)
 
 fit <- aviation_data |>
-  model(
-    arima300_011_c = ARIMA(log_n ~ 1 + pdq(3, 0, 0) + PDQ(0, 1, 1, period=4)
+  model(arima300_011_c = ARIMA(log_n ~ 1 + pdq(3, 0, 0) + PDQ(0, 1, 1, period=4)
     )
   )
 
 # Forecast the next 12 quarters (3 years)
 fc <- fit |>
   forecast(h = 12)
-
 ```
 
 ```{r}
@@ -46,7 +46,6 @@ fc |>
   as_tibble() |>
   select(year_qtr, log_n,.mean)|>
   kable(digits = 3, caption = "3-year forecasts from ARIMA(3,0,0) x (0,1,1)[4]")
-
 ```
 
 Using `autoplot()` function to generate a plot of 3-year ahead forecasts
@@ -60,7 +59,6 @@ fc |>
     y = "Number of incidents (log scale)",
     x = "Year-quarter"
   )
-
 ```
 
 The model predicts that aviation incident counts will remain stable over the next three years, with seasonal variation following the historical quarterly pattern. The forecast doesn't indication increase in aviation incidence frequency in the near future. This may reflect steady aviation safety practice. 
