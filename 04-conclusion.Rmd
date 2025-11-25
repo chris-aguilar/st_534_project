@@ -1,11 +1,47 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
 # Conclusion 
 
-All chapters start with a first-level heading followed by your chapter title, like the line above. There should be only one first-level heading (`#`) per .Rmd file.
+## Summary
+In this project, we analyzed quarterly aviation incident data from 1983 to 2025 across all 50 states using exploratory data analysis (EDA), time series modeling, and forecasting.EDA revealed long-term trends, seasonal patterns, and non-stationarity, guiding the selection of candidate ARIMA models. After evaluating multiple models using AIC, AICc, BIC, and residual diagnostics, the seasonal ARIMA model $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant was chosen for forecasting. Using this model, we projected aviation incident counts for the next three years.
 
-## A section
+## Core Findings
 
-All chapter sections start with a second-level (`##`) or higher heading followed by your section title, like the sections above and below here. You can have as many as you want within a chapter.
+### Exploratory Data Analysis (EDA)
+The aviation incident series displays non-constant variance and a pronounced long-term downward trend across the study period. Quarterly seasonality is evident, with Q3 consistently recording the highest number of incidents, likely due to increased flight activity during this period. To stabilize the variance, we applied a log transformation.  
 
-### An unnumbered section {-}
+The ACF of the original series exhibits strong seasonal spikes at lags 4, 8, 12, etc., along with a slow decay, confirming non-stationarity. Based on the ADF test, applying a seasonal difference at lag 4 to the log-transformed series is sufficient to achieve stationarity. However, the Ljung–Box test indicates that this differenced series is not white noise, suggesting the further modeling is required. 
 
-Chapters and sections are numbered by default. To un-number a heading, add a `{.unnumbered}` or the shorter `{-}` at the end of the heading, like in this section.
+In addition, the ACF and PACF plots of the seasonally differenced series show notable spikes around lags 3 and 4, indicating the presence of both non-seasonal and seasonal AR and MA components. Based on these patterns, we proposed six candidate ARIMA models, along with several automatically selected seasonal ARIMA models using the `Hyndman-Khandakar algorithm`, for further evaluation.  
+
+### Modeling
+We split the dataset into a training set and a test set to evaluate the performance of our candidate models. The Ljung-Box white noise test indicated that residuals of all candidate models are white noise, indicating that each model provided an adequate fit to the training data.
+
+Among the seasonal ARIMA models considered, the model $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant demonstrated the best overall performance. It achieved the lowest AIC (–417.0240), AICc (–416.4890), and BIC (–398.4248), and was also the model automatically selected by the `Hyndman–Khandakar algorithm`. Additionally, its residuals were closer to normally distributed, further supporting its suitability. Although the constant-free version of the model achieved the lowest RMSE (0.1339688), the constant-inclusive model had substantially better AIC and BIC values. Given the emphasis on model parsimony and overall fit, we selected the $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant as the final model for forecasting.
+
+Including a constant in a seasonally differenced ARIMA model introduces a drift term, allowing the model to capture any remaining long-term trend in the data. The constant-inclusive model provided a better fit based on AIC, AICc, and BIC, suggesting that a small underlying trend remained after seasonal differencing.
+
+### Forecasting
+Using selected $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant, we generated quarterly forecast for the next three years. The forecast retains the strong seasonal pattern observed historically, with seasonal peaks persisting in Q3. Forecasts indicate continued decline in incident counts, 
+
+The 95% prediction intervals widen gradually, reflecting increasing uncertainty over longer forecast horizons, which is typical for ARIMA models.
+
+## Overall interpretation and recommendations
+This study provides a view of aviation incident trends in the United States over four decades. The significant long-term decline in incident counts reflects advancements in aviation safety standards, regulatory oversight, pilots training, and aircraft technology. However, the consistent peak in Q3, suggests that operational factors such as increased flight activity during summer months continue to influence incident frequency. 
+
+The selected ARIMA model effectively captures these historical dynamics and offers reliable short-term forecasts. While the projected decline in incidents is encouraging, the widening prediction intervals highlight inherent uncertainty in long-range forecasting, emphasizing the need for continuous monitoring and model updates.
+
+Furthermore, these findings can provide useful information for resource allocation, safety audits, and policy planning by aviation authorities and airlines. Anticipating seasonal peaks may help optimize staffing and maintenance schedules during high-traffic periods.
+
+
+## Limitations of the Project
+This analysis relied solely on aggregated incident counts, excluding explanatory variables such as weather, aircraft age, maintenance practices, and operational workload. Incorporating these factors in future models could improve predictive accuracy and provide deeper insights into causal mechanisms.
+
+Additionally, exploring advanced modeling approaches, such as SARIMAX for external regressors or machine learning techniques like LSTM, could provide deeper insights and improve long-term forecasting performance.
+
+
+
+
