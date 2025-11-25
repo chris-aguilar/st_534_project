@@ -6,16 +6,16 @@ output:
 # Conclusion 
 
 ## Summary
-In this project, we analyzed quarterly aviation incident data from 1983 to 2025 across all 50 states using exploratory data analysis (EDA), time series modeling, and forecasting.EDA revealed long-term trends, seasonal patterns, and non-stationarity, guiding the selection of candidate ARIMA models. After evaluating multiple models using AIC, AICc, BIC, and residual diagnostics, the seasonal ARIMA model $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant was chosen for forecasting. Using this model, we projected aviation incident counts for the next three years.
+In this project, we analyzed quarterly aviation incident data from 1983 to 2025 across all 50 states using exploratory data analysis (EDA), time series modeling, and forecasting. EDA revealed long-term trends, seasonal patterns, and non-stationarity in the data, guiding the selection of candidate ARIMA models. After evaluating multiple models using AIC, AICc, BIC, and residual diagnostics, the seasonal ARIMA model $ARIMA(3,0,0)\times(0,1,1)_4$ with a constant was chosen for forecasting. Using this model, we we generated forecasts of aviation incident counts for the next three years.
 
-## Core Findings
+## Core findings
 
 ### Exploratory Data Analysis (EDA)
 The aviation incident series displays non-constant variance and a pronounced long-term downward trend across the study period. Quarterly seasonality is evident, with Q3 consistently recording the highest number of incidents, likely due to increased flight activity during this period. To stabilize the variance, we applied a log transformation.  
 
 The ACF of the original series exhibits strong seasonal spikes at lags 4, 8, 12, etc., along with a slow decay, confirming non-stationarity. Based on the ADF test, applying a seasonal difference at lag 4 to the log-transformed series is sufficient to achieve stationarity. However, the Ljung–Box test indicates that this differenced series is not white noise, suggesting the further modeling is required. 
 
-In addition, the ACF and PACF plots of the seasonally differenced series show notable spikes around lags 3 and 4, indicating the presence of both non-seasonal and seasonal AR and MA components. Based on these patterns, we proposed six candidate ARIMA models, along with several automatically selected seasonal ARIMA models using the `Hyndman-Khandakar algorithm`, for further evaluation.  
+In addition, the ACF and PACF plots of the seasonally differenced series show notable spikes around lags 3 and 4, indicating the presence of both non-seasonal and seasonal AR and MA components. Based on these patterns, we proposed six candidate ARIMA models, along with an automatically selected seasonal ARIMA model using the `Hyndman-Khandakar algorithm`, for further evaluation.  
 
 ### Modeling
 We split the dataset into a training set and a test set to evaluate the performance of our candidate models. The Ljung-Box white noise test indicated that residuals of all candidate models are white noise, indicating that each model provided an adequate fit to the training data.
@@ -36,8 +36,7 @@ The selected ARIMA model effectively captures these historical dynamics and offe
 
 Furthermore, these findings can provide useful information for resource allocation, safety audits, and policy planning by aviation authorities and airlines. Anticipating seasonal peaks may help optimize staffing and maintenance schedules during high-traffic periods.
 
-
-## Limitations of the Project
+## Limitations of the project
 This analysis relied solely on aggregated incident counts, excluding explanatory variables such as weather, aircraft age, maintenance practices, and operational workload. Incorporating these factors in future models could improve predictive accuracy and provide deeper insights into causal mechanisms.
 
 Additionally, exploring advanced modeling approaches, such as SARIMAX for external regressors or machine learning techniques like LSTM, could provide deeper insights and improve long-term forecasting performance.
