@@ -15,7 +15,7 @@ The aviation incident series displays non-constant variance and a pronounced lon
 
 The ACF of the original series exhibits strong seasonal spikes at lags 4, 8, 12, etc., along with a slow decay, confirming non-stationarity. Based on the ADF test, applying a seasonal difference at lag 4 to the log-transformed series is sufficient to achieve stationarity. However, the Ljung–Box test indicates that this differenced series is not white noise, suggesting the further modeling is required. 
 
-In addition, the ACF and PACF plots of the seasonally differenced series show notable spikes around lags 3 and 4, indicating the presence of both non-seasonal and seasonal AR and MA components. Based on these patterns, we proposed six candidate ARIMA models, along with several automatically selected seasonal ARIMA models using the `Hyndman-Khandakar algorithm`, for further evaluation.  
+In addition, the ACF and PACF plots of the seasonally differenced series show notable spikes around lags 3 and 4, indicating the presence of both non-seasonal and seasonal AR and MA components. Based on these patterns, we proposed six candidate ARIMA models, along with an automatically selected seasonal ARIMA model using the `Hyndman-Khandakar algorithm`, for further evaluation.  
 
 ### Modeling
 We split the dataset into a training set and a test set to evaluate the performance of our candidate models. The Ljung-Box white noise test indicated that residuals of all candidate models are white noise, indicating that each model provided an adequate fit to the training data.
