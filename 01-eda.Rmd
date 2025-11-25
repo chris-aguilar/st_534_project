@@ -6,7 +6,7 @@ We start by doing some exploratory data (EDA) analysis on our data.
 
 We'll need to import the aviation incident data first. Then we'll preview the first 10 quarters.
 
-```{r eda import, message=FALSE, echo=TRUE}
+```{r eda import, message=FALSE, echo=TRUE, warning=FALSE}
 library(dplyr)
 library(readr)
 library(fpp3)
@@ -23,7 +23,7 @@ kable(aviation_data |> head(10), col.names = c("Quarter", "Events"))
 
 We begin by plotting the aviation incident time series itself along with the relevant ACF and PACF plots.
 
-```{r data viz}
+```{r data viz, warning=FALSE}
 
 aviation_data |>
   gg_tsdisplay(n, plot_type = "partial") +
@@ -43,7 +43,7 @@ We'll filter away the final point, create a log-transformed incident count, a se
 
 We'll start by visualizing the series with a log-transform first.
 
-```{r logtransform data viz}
+```{r logtransform data viz, warning=FALSE}
 
 # creating differenced series at lags 4, 1, and 4+1
 aviation_data <- aviation_data |>
@@ -101,7 +101,7 @@ Based on the ADF test, a single seasonal difference at lag 4 is enough to make o
 
 We also check to see if we can reject the Ljung-Box null hypothesis of white noise.
 
-```{r sdiff white noise check}
+```{r sdiff white noise check, warning=FALSE}
 aviation_data |>
   filter(!is.na(sdiff_logn)) |> # base-R Ljung-Box test expects no NAs
   pull(sdiff_logn) |>
@@ -111,7 +111,7 @@ aviation_data |>
 
 The Ljung-Box test suggests the lag-4 differenced series is not white noise, so we should do some modeling to make use of more information in the series.
 
-Looking at seasonal lag components of the **Lag-4 difference series, ACF and PACF plots**, we notice that the ACF plot has significant spikes into the teens and 20. We also notice the PACF plot has no more significant spikes after lag 8, corresponding to a seasonal lag of 2. The fact that the ACF plot continues to have spikes at later lags but the PACF plot stops after lag 8 suggests a non-seasonal AR portion. But also, the PACF still looks a little bit like it dies off slowly. So this suggests both a seasonal AR and MA component will be needed as well. 
+Looking at seasonal lag components of the **Lag-4 difference series, ACF and PACF plots**, we notice that the ACF plot has significant spikes into the teens and 20. We also notice the PACF plot has no more significant spikes after lag 8. The fact that the ACF plot continues to have spikes at later lags but the PACF plot stops after lag 8 suggests a non-seasonal AR portion. But also, the PACF still looks a little bit like it dies off slowly. So this suggests both a seasonal AR and MA component will be needed as well. 
 
 So, since we took one seasonal difference, we fix $D=1$. For simplicity's sake, we're going to guess $p=3$ based on the significant PACF spike at lag 3. So we'll just play around with $P=[0, 1, 2]$, and leave $q=0$.
 

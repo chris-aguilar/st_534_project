@@ -5,7 +5,7 @@ output:
 ---
 # Modeling
 
-```{r modeling data import, message=FALSE, echo=FALSE}
+```{r modeling data import, message=FALSE, echo=FALSE, warning=FALSE}
 library(readr)
 library(fpp3)
 library(knitr)
@@ -23,12 +23,14 @@ aviation_data <- read_csv("aviation_incident_data_clean.csv") |>
 ```
 
 We will first split the data into training and test sets, using Q1 1983 - Q4 2024 for training and Q1 2025 - Q3 2025 for testing.
+
 ```{r test_split}
 aviation_train <- aviation_data |> filter(year(year_qtr) < 2025)
 aviation_test <- aviation_data |> filter(year(year_qtr) >= 2025)
 ```
 
 We will also use the following utility functions for the Ljung-Box white noise test.
+
 ```{r utilities}
 get_dof_from_arima <- function(fit_arima, model_name) {
   return (
@@ -81,8 +83,8 @@ aviation_fit <-
 
 We will first examine the $ARIMA(3,0,0)\times(0,1,1)_4$ models.
 
-
 ## $ARIMA(3,0,0)\times(0,1,1)_4$
+
 ```{r residuals_300_011}
 aviation_fit |> 
   select(arima300_011) |> 
@@ -105,7 +107,9 @@ kable(rbind(test_ljung_box(aviation_fit, "arima300_011"),
 The Ljung-Box white noise test results in p-values well above the $\alpha=.05$ threshold for both models, though the constant-inclusive model has a much higher p-value (.97). The residuals of both models are thus indistinguishable from white noise. Overall, the constant-inclusive model seems to have the better fit.
 
 ## $ARIMA(3,0,0)\times(1,1,1)_4$
+
 We will now examine an $ARIMA(3,0,0)\times(1,1,1)_4$ sans constant, and an $ARIMA(3,0,0)\times(1,1,1)_4$ with a constant.
+
 ```{r residuals_300_111}
 aviation_fit |> 
   select(arima300_111) |> 
@@ -120,10 +124,12 @@ aviation_fit |>
 kable(rbind(test_ljung_box(aviation_fit, "arima300_111"),  
       test_ljung_box(aviation_fit, "arima300_111_c")))
 ```
+
 Like the previous $ARIMA(3,0,0)\times(0,1,1)_4$ models, we see isolated residual ACF spikes at lag 17 and a large residual in Q1 2020. We also observe a closer-to-normal distribution of residuals with the constant-inclusive model. From the Ljung-Box test, we can reasonably conclude the residuals of both models behave like white noise, with the constant-inclusive model providing a high probability of white noise. Compared to the previous models, we observe slightly more residual autocorrelation, but the models appear to fit adequately, favoring the constant-inclusive model.
 
 ## $ARIMA(3,0,0)\times(2,1,1)_4$
 Next, we will inspect the $ARIMA(3,0,0)\times(2,1,1)_4$ models (with and without a constant). This model has one more seasonal AR term than the previous set.
+
 ```{r residuals_300_211}
 aviation_fit |> 
   select(arima300_211) |> 
@@ -138,9 +144,11 @@ aviation_fit |>
 kable(rbind(test_ljung_box(aviation_fit, "arima300_211"),  
       test_ljung_box(aviation_fit, "arima300_211_c")))
 ```
+
 The residuals for the $ARIMA(3,0,0)\times(2,1,1)_4$ models are very similar to those previously examined, with a large residual in Q1 2020 and the constant-inclusive model possessing overall lower autocorrelation and a nearer-to-normal residual arrangement. The Ljung-Box check has a fairly low p-value of ~.10 for the non-constant-inclusive model, but a quite large one (~.75) for the constant-inclusive model, suggesting that the constant-inclusive model residuals are white noise.
 
 ## Model comparison
+
 Overall, the models with constants fit the data more closely. From visual inspection, the first model with a constant - $ARIMA(3,0,0)\times(0,1,1)_4$ - appeared to fit best. This model was also automatically selected by the [Hyndman-Khandakar algorithm](https://otexts.com/fpp3/arima-r.html#how-does-arima-work).
 
 ```{r auto_model}
@@ -154,6 +162,7 @@ kable(glance(aviation_fit) |> arrange(AICc) |> select(.model:BIC))
 The constant-inclusive $ARIMA(3,0,0)\times(0,1,1)_4$ model has the lowest AIC, AICc, and BIC values, and is also the most parsimonious of the models with constants. 
 
 We can also compare the accuracy of the 2025 forecasts.
+
 ```{r test_accuracy}
 kable(
   aviation_fit |> forecast(h=3) |> 
@@ -162,6 +171,7 @@ kable(
     arrange(RMSE)
   )
 ```
+
 The $ARIMA(3,0,0)\times(0,1,1)_4$ models also minimize test RMSE. As AIC and BIC favor the model with a constant, we will select it as our preferred model for forecasting.
 
 ```{r}

@@ -41,7 +41,3 @@ Furthermore, these findings can provide useful information for resource allocati
 This analysis relied solely on aggregated incident counts, excluding explanatory variables such as weather, aircraft age, maintenance practices, and operational workload. Incorporating these factors in future models could improve predictive accuracy and provide deeper insights into causal mechanisms.
 
 Additionally, exploring advanced modeling approaches, such as SARIMAX for external regressors or machine learning techniques like LSTM, could provide deeper insights and improve long-term forecasting performance.
-
-
-
-
