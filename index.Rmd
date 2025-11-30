@@ -10,9 +10,13 @@ output:
 
 # Introduction
 
-This data represents the quarterly aircraft incident count for all 50 US states going back to Q1 1983. This data was selected because claims were made that aviation incidents had become more common after January 2025, so we wanted to see if 2025 quarterly data followed a trend consistent with trends seen in previous years.
+This data ('aviation_incident_data_clean.csv') represents the quarterly aircraft incident count for all 50 US states going back to Q1 1983. This data was selected because claims were made that aviation incidents had become more common after January 2025, so we wanted to see if 2025 quarterly data followed a trend consistent with trends seen in previous years.
 
 ## Data source
 
 Source: Case Analysis and Reporting Online (CAROL), National Transportation Safety Board, retrieved 2025-10-28, (https://carol.ntsb.gov/).
+
+## Data import and project source
+
+The next section includes R code for importing the data. All project code is also available at (https://github.com/chris-aguilar/st_534_project).
 
