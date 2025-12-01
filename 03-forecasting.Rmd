@@ -11,6 +11,7 @@ library(readr)
 library(fpp3)
 library(knitr)
 library(ggtime)
+library(kableExtra)
 
 # data import template for modeling section; this code is set to not show in 
 # report
@@ -37,12 +38,11 @@ fc <- fit |>
 ```
 
 ```{r}
-library(knitr)
-
 fc |>
   as_tibble() |>
   select(year_qtr, n,.mean)|>
-  kable(digits = 3, caption = "3-year forecasts from ARIMA(3,0,0) x (0,1,1)[4]")
+  kable(digits = 3, caption = "3-year forecasts from ARIMA(3,0,0) x (0,1,1)[4]") |>
+  kable_styling(latex_options = "hold_position")
 ```
 
 Using `autoplot()` function to generate a plot of 3-year ahead forecasts
